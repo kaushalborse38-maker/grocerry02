@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grocery Order App</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght400;600;700&display=swap" rel="stylesheet">
+    <!-- Load Lucide Icons for a clean, modern look -->
+    <script type="module" src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Define the custom WhatsApp-like green */
+        :root {
+            --whatsapp-green: #128C7E;
+            --whatsapp-light: #ECE5DD;
+            --button-shadow-green: #25D366;
+        }
+
+        /* Custom styles for the WhatsApp chat background */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--whatsapp-light); /* Light chat background color */
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px; /* Typical mobile width */
+            background-color: #f7f7f7;
+            min-height: 100vh;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            position: relative; /* For the fixed done button */
+        }
+
+        /* 1. Pulsing Button Effect (YouTube Subscribe Lookalike) */
+        @keyframes pulse-shadow {
+            0% {
+                box-shadow: 0 0 0 0 var(--button-shadow-green);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 10px 5px rgba(37, 211, 102, 0.6);
+                transform: scale(1.02);
+            }
+            100% {
+                box-shadow: 0 0 0 0 var(--button-shadow-green);
+                transform: scale(1);
+            }
+        }
+
+        .pulse-button {
+            animation: pulse-shadow 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+            transition: background-color 0.2s;
+        }
+
+        .pulse-button:hover {
+            background-color: #0d6d5f; /* Darker on hover */
+        }
+
+        /* General UI enhancements */
+        .chat-bubble {
+            background-color: #DCF8C6; /* WhatsApp message outgoing bubble */
+            border-radius: 12px 12px 12px 0;
+            padding: 12px;
+            max-width: 85%;
+            margin-left: 8px;
+            box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+        }
+        
+        /* Incoming message bubble for the summary */
+        .chat-bubble-incoming {
+            background-color: #FFFFFF; /* White bubble */
+            border-radius: 12px 12px 0 12px;
+            margin-right: 8px;
+            margin-left: auto; /* Push to the right */
+            box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+        }
+
+        /* Style for the fixed "Done" button */
+        #doneButton {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 440px;
+            z-index: 100;
+        }
+        
+        /* Menu card styling */
+        .menu-item-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .menu-item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Ensures the summary box fits nicely */
+        #orderSummaryContainer {
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container" id="app">
+    <!-- Application Header (WhatsApp Top Bar Lookalike) -->
+    <header class="sticky top-0 p-4 shadow-md text-white z-50" style="background-color: var(--whatsapp-green);">
+        <h1 class="text-xl font-semibold flex items-center">
+            <i data-lucide="shopping-basket" class="mr-2 h-5 w-5"></i>
+            Grocery Order Bot
+        </h1>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="p-4 space-y-4 pb-28">
+        
+        <!-- Screen 1: Greeting and Initial Button -->
+        <div id="screen1" class="space-y-4">
+            <div class="chat-bubble">
+                <p class="text-gray-800 text-sm">
+                    👋 Welcome to our digital grocery service!
+                    <br><br>
+                    To view our products and start building your basket, please tap the button below.
+                </p>
+                <p class="text-xs text-right text-gray-500 mt-2">10:00 AM</p>
+            </div>
+            
+            <div class="flex justify-start pt-4">
+                <button 
+                    id="placeOrderButton"
+                    class="pulse-button bg-black text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-150 ease-in-out hover:bg-gray-800"
+                >
+                    Start Shopping
+                </button>
+            </div>
+        </div>
+
+        <!-- Screen 2: Menu Card (Hidden by default) -->
+        <div id="screen2" class="hidden space-y-4">
+            <h2 id="menuTitle" class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">Our Products</h2>
+            
+            <div id="menuList" class="space-y-3">
+                <!-- Menu items will be injected here by JavaScript -->
+            </div>
+            
+            <!-- Container for the final order summary chat bubble -->
+            <div id="orderSummaryContainer" class="hidden pt-6">
+                <p class="text-sm text-center text-gray-500 mb-2">Order Confirmed</p>
+            </div>
+        </div>
+
+        <!-- Screen 3: Customer Details (Hidden by default) -->
+        <div id="screen3" class="hidden space-y-4 pt-6">
+            <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">Delivery Details</h2>
+            
+            <form id="customerForm" class="space-y-4 bg-white p-4 rounded-xl shadow-md">
+                <!-- Name Input -->
+                <div>
+                    <label for="customerName" class="block text-sm font-medium text-gray-700 mb-1">Your Full Name (Required)</label>
+                    <input type="text" id="customerName" placeholder="John Doe" required
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition duration-150">
+                </div>
+
+                <!-- Number Input -->
+                <div>
+                    <label for="customerPhone" class="block text-sm font-medium text-gray-700 mb-1">Mobile Number (10 digits Required)</label>
+                    <input type="tel" id="customerPhone" placeholder="e.g., 9876543210" required maxlength="10"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition duration-150">
+                </div>
+
+                <!-- Address Input -->
+                <div>
+                    <label for="customerAddress" class="block text-sm font-medium text-gray-700 mb-1">Delivery Address (Required)</label>
+                    <textarea id="customerAddress" rows="3" placeholder="Street, City, Postal Code" required
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition duration-150"></textarea>
+                </div>
+            </form>
+
+            <button 
+                id="submitOrderButton"
+                class="w-full bg-green-700 text-white font-bold py-3 rounded-full shadow-lg hover:bg-green-800 transition duration-150 ease-in-out mt-4"
+            >
+                Confirm & Submit Order
+            </button>
+        </div>
+        
+        <!-- Modal for Dish Description -->
+        <div id="descriptionModal" class="fixed inset-0 bg-black bg-opacity-50 z-[200] hidden items-center justify-center p-4">
+            <div class="bg-white p-6 rounded-lg w-full max-w-sm shadow-2xl">
+                <h3 id="modalDishName" class="text-xl font-bold mb-2 text-gray-800">Dish Name</h3>
+                <p id="modalDishDescription" class="text-gray-600 mb-4 text-sm"></p>
+                <div class="flex justify-end">
+                    <button id="closeModalButton" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">Close</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 3. Fixed "Done" Button (Visible when on Screen 2) -->
+    <button 
+        id="doneButton" 
+        class="hidden bg-green-600 text-white font-bold py-4 rounded-full shadow-2xl text-lg hover:bg-green-700 transition duration-150 ease-in-out"
+    >
+        Done (0 items - Total: ₹0.00)
+    </button>
+</div>
+
+<script>
+    // 4. Webhook URL - REPLACE THIS WITH YOUR ACTUAL N8N WEBHOOK ENDPOINT
+    const WEBHOOK_URL = "https://n8n.your-server.com/webhook/unique-order-endpoint";
+    
+    // Menu Data (Prices are now considered in Indian Rupees - INR)
+    const MENU_ITEMS = [
+        // Using sample INR prices for common grocery items
+        { id: 'milk', name: 'Fresh Milk (1L)', price: 65.00, description: 'Pasteurized, whole milk, locally sourced. Great for coffee and cereal.' },
+        { id: 'oil', name: 'Sunflower Oil (5L)', price: 950.00, description: 'High-quality, refined sunflower oil for all your cooking needs.' },
+        { id: 'wheat', name: 'Whole Wheat Flour (1kg)', price: 40.00, description: 'Stone-ground whole wheat flour. Perfect for baking bread.' },
+        { id: 'rice', name: 'Basmati Rice (5kg)', price: 499.00, description: 'Aromatic, aged Basmati rice. Ideal for biryani and pilaf.' },
+    ];
+
+    // State object to track the order
+    let orderState = MENU_ITEMS.reduce((acc, item) => {
+        acc[item.id] = { quantity: 0, price: item.price, name: item.name };
+        return acc;
+    }, {});
+    
+    // Global variable to store the final order items before adding customer details
+    let currentFinalOrder = [];
+
+    // DOM Elements
+    const screen1 = document.getElementById('screen1');
+    const screen2 = document.getElementById('screen2');
+    const screen3 = document.getElementById('screen3'); // New screen element
+    const placeOrderButton = document.getElementById('placeOrderButton');
+    const menuList = document.getElementById('menuList');
+    const doneButton = document.getElementById('doneButton');
+    const submitOrderButton = document.getElementById('submitOrderButton'); // New button
+    const descriptionModal = document.getElementById('descriptionModal');
+    const modalDishName = document.getElementById('modalDishName');
+    const modalDishDescription = document.getElementById('modalDishDescription');
+    const closeModalButton = document.getElementById('closeModalButton');
+    const menuTitle = document.getElementById('menuTitle');
+    const orderSummaryContainer = document.getElementById('orderSummaryContainer');
+    
+    // --- UI Update Functions ---
+
+    /** Renders the menu item card HTML */
+    function renderMenuItem(item) {
+        return `
+            <div class="menu-item-card bg-white p-4 rounded-xl shadow-md flex justify-between items-center transition duration-150 ease-in-out">
+                <div class="flex-grow">
+                    <div class="flex items-center">
+                        <h3 class="font-semibold text-lg text-gray-800">${item.name}</h3>
+                        <button 
+                            data-dish-id="${item.id}" 
+                            data-dish-name="${item.name}" 
+                            data-dish-desc="${item.description}" 
+                            class="info-button text-gray-400 ml-2 hover:text-gray-600 transition"
+                        >
+                            <i data-lucide="info" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                    <p class="text-sm text-green-600 font-medium">₹${item.price.toFixed(2)}</p>
+                </div>
+                
+                <!-- Quantity Selector -->
+                <div class="flex items-center space-x-2">
+                    <button 
+                        data-id="${item.id}" 
+                        data-action="decrement" 
+                        class="qty-button bg-gray-200 text-gray-700 w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-300 transition"
+                    >
+                        <i data-lucide="minus" class="h-4 w-4"></i>
+                    </button>
+                    <span id="qty-${item.id}" class="quantity-display font-mono text-lg w-6 text-center">0</span>
+                    <button 
+                        data-id="${item.id}" 
+                        data-action="increment" 
+                        class="qty-button bg-green-500 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-green-600 transition shadow-lg"
+                    >
+                        <i data-lucide="plus" class="h-4 w-4"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    /** Updates the text on the floating "Done" button */
+    function updateDoneButton() {
+        let totalItems = 0;
+        let totalPrice = 0;
+        
+        for (const id in orderState) {
+            totalItems += orderState[id].quantity;
+            totalPrice += orderState[id].quantity * orderState[id].price;
+        }
+
+        if (totalItems > 0) {
+            doneButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            doneButton.disabled = false;
+        } else {
+            doneButton.classList.add('opacity-50', 'cursor-not-allowed');
+            doneButton.disabled = true;
+        }
+
+        doneButton.textContent = `Done (${totalItems} items - Total: ₹${totalPrice.toFixed(2)})`;
+    }
+
+    /** Updates the quantity display for a specific dish */
+    function updateQuantityDisplay(dishId, quantity) {
+        const qtySpan = document.getElementById(`qty-${dishId}`);
+        if (qtySpan) {
+            qtySpan.textContent = quantity;
+        }
+        updateDoneButton();
+    }
+    
+    /** Generates and displays the final order summary as a chat bubble */
+    function displayOrderSummaryAsChat(orderData) {
+        // 1. Hide current screens
+        menuList.classList.add('hidden');
+        menuTitle.classList.add('hidden');
+        screen3.classList.add('hidden');
+        doneButton.classList.add('hidden');
+        orderSummaryContainer.classList.remove('hidden');
+
+        // 2. Format the order details for chat display
+        const itemLines = orderData.order_details.map(item => 
+            `<span class="font-medium">${item.name}</span> x${item.quantity} 
+            <span class="float-right font-semibold">₹${item.total_price}</span>`
+        ).join('<br>');
+
+        const currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+        // 3. Create the chat bubble HTML
+        const summaryHtml = `
+            <div class="chat-bubble chat-bubble-incoming self-end p-4 mb-2 shadow-lg w-full">
+                <p class="font-bold text-lg mb-2 text-green-700">✅ Order Confirmation</p>
+                
+                <div class="text-xs text-gray-600 border-b pb-2 mb-3">
+                    <p class="font-semibold text-sm mb-1">Delivery To:</p>
+                    <p class="text-sm font-medium">${orderData.customer_details.name}</p>
+                    <p>Phone: ${orderData.customer_details.phone}</p>
+                    <p>${orderData.customer_details.address}</p>
+                </div>
+                
+                <p class="font-bold text-base mb-2 text-gray-800">Order Items:</p>
+
+                <div class="text-sm space-y-2">
+                    <p class="border-b pb-2">
+                        ${itemLines}
+                    </p>
+                    <p class="font-bold text-base pt-2 flex justify-between">
+                        <span>Grand Total:</span>
+                        <span class="text-green-600">₹${orderData.total_amount}</span>
+                    </p>
+                </div>
+                <p class="text-xs text-right text-gray-500 mt-3">${currentTime}</p>
+                <p class="text-xs text-center mt-4 pt-2 border-t text-gray-600">
+                    Order submitted to n8n webhook for processing.
+                </p>
+            </div>
+            
+            <div class="flex justify-center pt-8">
+                <button 
+                    id="newOrderButton"
+                    class="bg-black text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-150 ease-in-out hover:bg-gray-800"
+                >
+                    Start New Order
+                </button>
+            </div>
+        `;
+
+        orderSummaryContainer.innerHTML = summaryHtml;
+        window.scrollTo(0, document.body.scrollHeight); // Scroll to bottom
+
+        document.getElementById('newOrderButton').addEventListener('click', () => {
+             window.location.reload(); // Simple way to reset the app
+        });
+    }
+
+
+    // --- Event Handlers ---
+
+    // 1. Handle "Start Shopping" button click
+    placeOrderButton.addEventListener('click', () => {
+        screen1.classList.add('hidden');
+        screen2.classList.remove('hidden');
+        doneButton.classList.remove('hidden');
+        window.scrollTo(0, 0); 
+    });
+
+    // 2. Handle Quantity +/- and Info buttons (delegation)
+    menuList.addEventListener('click', (event) => {
+        const target = event.target.closest('button');
+        if (!target) return;
+
+        // Quantity Selector Logic
+        if (target.classList.contains('qty-button')) {
+            const dishId = target.dataset.id;
+            const action = target.dataset.action;
+            let currentQty = orderState[dishId].quantity;
+
+            if (action === 'increment') {
+                currentQty++;
+            } else if (action === 'decrement' && currentQty > 0) {
+                currentQty--;
+            }
+            
+            orderState[dishId].quantity = currentQty;
+            updateQuantityDisplay(dishId, currentQty);
+        } 
+        
+        // Info Button Logic
+        else if (target.classList.contains('info-button')) {
+            const dishName = target.dataset.dishName;
+            const dishDesc = target.dataset.dishDesc;
+            
+            modalDishName.textContent = dishName;
+            modalDishDescription.textContent = dishDesc;
+            descriptionModal.classList.remove('hidden');
+            descriptionModal.classList.add('flex');
+        }
+    });
+
+    // Handle Modal Close
+    closeModalButton.addEventListener('click', () => {
+        descriptionModal.classList.remove('flex');
+        descriptionModal.classList.add('hidden');
+    });
+
+    // 3. Handle "Done" button click (Moves to Customer Details Screen)
+    doneButton.addEventListener('click', async () => {
+        if (doneButton.disabled) return;
+        
+        // 1. Filter and structure the final order data
+        const finalOrder = Object.values(orderState)
+            .filter(item => item.quantity > 0)
+            .map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                unit_price: item.price.toFixed(2),
+                total_price: (item.quantity * item.price).toFixed(2)
+            }));
+            
+        if (finalOrder.length === 0) {
+            alertUser('Please select at least one item before proceeding.', true);
+            return;
+        }
+        
+        // Store the order details temporarily
+        currentFinalOrder = finalOrder;
+        
+        // Hide menu/done button and show screen 3
+        menuList.classList.add('hidden');
+        menuTitle.classList.add('hidden'); 
+        doneButton.classList.add('hidden');
+        orderSummaryContainer.classList.add('hidden');
+        screen3.classList.remove('hidden');
+        
+        window.scrollTo(0, 0); 
+    });
+    
+    // 4. Handle "Confirm & Submit Order" button click (Finalizes Order)
+    submitOrderButton.addEventListener('click', async () => {
+        const name = document.getElementById('customerName').value.trim();
+        const phone = document.getElementById('customerPhone').value.trim();
+        const address = document.getElementById('customerAddress').value.trim();
+
+        // 1. Validation
+        if (!name || !address) {
+            alertUser('Please fill in your Name and Delivery Address.', true);
+            return;
+        }
+        // Validate 10-digit number
+        if (!/^\d{10}$/.test(phone)) {
+            alertUser('Please enter a valid 10-digit mobile number.', true);
+            return;
+        }
+
+        // 2. Prepare final order data
+        const orderData = {
+            customer_details: {
+                name: name,
+                phone: phone,
+                address: address
+            },
+            order_details: currentFinalOrder,
+            timestamp: new Date().toISOString(),
+            total_amount: currentFinalOrder.reduce((sum, item) => sum + parseFloat(item.total_price), 0).toFixed(2),
+            webhook_url: WEBHOOK_URL 
+        };
+        
+        // 3. Submit to Webhook (Uncomment for production use)
+        /*
+        try {
+            const response = await fetch(WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderData)
+            });
+            
+            if (response.ok) {
+                displayOrderSummaryAsChat(orderData);
+            } else {
+                alertUser('Order failed to send to webhook. Please try again.', false);
+            }
+        } catch (error) {
+            console.error('Webhook failed:', error);
+            alertUser('A network error occurred. Please check your connection.', false);
+        }
+        */
+       
+       // For this demo, we skip the fetch and proceed directly to chat confirmation
+       displayOrderSummaryAsChat(orderData);
+    });
+    
+    // Custom Alert/Message Box Function (to replace window.alert)
+    function alertUser(message, isInfo) {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-70 z-[500] flex items-center justify-center p-4';
+        
+        const title = isInfo ? 'Attention' : 'Error';
+        const titleColor = isInfo ? 'text-blue-600' : 'text-red-600';
+
+        modal.innerHTML = `
+            <div class="bg-white p-6 rounded-lg w-full max-w-sm shadow-2xl space-y-4">
+                <h4 class="text-xl font-bold ${titleColor}">${title}</h4>
+                <p class="text-sm text-gray-700">${message}</p>
+                <div class="flex justify-end">
+                    <button id="alertClose" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition">OK</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('alertClose').addEventListener('click', () => {
+            document.body.removeChild(modal);
+        });
+    }
+
+
+    // --- Initialization ---
+    function initializeApp() {
+        // 1. Generate Menu HTML
+        menuList.innerHTML = MENU_ITEMS.map(renderMenuItem).join('');
+        
+        // 2. Initialize Lucide icons (must be called after injecting HTML)
+        lucide.createIcons();
+
+        // 3. Set initial button state
+        updateDoneButton();
+    }
+
+    // Wait for the window to load before running initialization
+    window.onload = initializeApp;
+</script>
+
+</body>
+</html>
